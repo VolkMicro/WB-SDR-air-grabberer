@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from app.config import Settings
-from app.utils import utc_now_iso
+from app.utils import utc_now, utc_now_iso
 
 
 SCHEMA = """
