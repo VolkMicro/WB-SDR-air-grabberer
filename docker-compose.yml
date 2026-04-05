@@ -1,0 +1,87 @@
+services:
+  sdr-core:
+    build: .
+    container_name: wb-sdr-core
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+      - ./profiles.yaml:/app/profiles.yaml:ro
+    command: ["python", "-m", "app.sdr_core"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9911/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  event-engine:
+    build: .
+    container_name: wb-event-engine
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - sdr-core
+    volumes:
+      - ./data:/data
+      - ./profiles.yaml:/app/profiles.yaml:ro
+    command: ["python", "-m", "app.event_engine"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9912/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  telegram-gateway:
+    build: .
+    container_name: wb-telegram-gateway
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - event-engine
+    volumes:
+      - ./data:/data
+      - ./profiles.yaml:/app/profiles.yaml:ro
+    command: ["python", "-m", "app.telegram_gateway"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9913/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  dashboard:
+    build: .
+    container_name: wb-sdr-dashboard
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - sdr-core
+      - event-engine
+      - telegram-gateway
+    volumes:
+      - ./data:/data
+      - ./profiles.yaml:/app/profiles.yaml:ro
+    command:
+      - uvicorn
+      - app.dashboard:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

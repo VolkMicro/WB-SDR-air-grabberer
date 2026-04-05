@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WB SDR Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>WB SDR Dashboard</h1>
+    <p>Current time: {{ now }}</p>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>Health</h2>
+      <p>Queue pending: {{ health.queue_pending }}</p>
+      <p>Events 24h: {{ health.recent_events_24h }}</p>
+      <div class="grid two">
+        {% for heartbeat in health.heartbeats %}
+        <article class="card">
+          <h3>{{ heartbeat.service }}</h3>
+          <p>Status: {{ heartbeat.status }}</p>
+          <p>Updated: {{ heartbeat.updated_at }}</p>
+          <pre>{{ heartbeat.details_json }}</pre>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Current Scan State</h2>
+      {% if health.scan_state %}
+      <p>Profile: {{ health.scan_state.profile_id }}</p>
+      <p>Label: {{ health.scan_state.label }}</p>
+      <p>Started: {{ health.scan_state.last_started_at }}</p>
+      <p>Finished: {{ health.scan_state.last_finished_at }}</p>
+      <pre>{{ health.scan_state.details_json }}</pre>
+      {% else %}
+      <p>No scan state yet.</p>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>Control</h2>
+      <p>Muted until: {{ muted_until or 'not muted' }}</p>
+      <form action="/mute" method="post" class="inline-form">
+        <label>Mute minutes <input type="number" name="minutes" value="30" min="1" max="1440"></label>
+        <button type="submit">Apply</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Rules</h2>
+      <div class="grid two">
+        <article class="card">
+          <h3>Add Blacklist</h3>
+          <form action="/rules/blacklist" method="post">
+            <input name="value" placeholder="433.92 or 433.90-433.95" required>
+            <input name="note" placeholder="note">
+            <button type="submit">Add</button>
+          </form>
+          <ul>
+            {% for item in blacklist %}
+            <li>{{ item.rule_type }} {% if item.exact_hz %}{{ item.exact_hz / 1000000 }} MHz{% else %}{{ item.start_hz / 1000000 }}-{{ item.end_hz / 1000000 }} MHz{% endif %} ({{ item.note }})</li>
+            {% endfor %}
+          </ul>
+        </article>
+
+        <article class="card">
+          <h3>Add Whitelist</h3>
+          <form action="/rules/whitelist" method="post">
+            <input name="value" placeholder="433.92 or 433.90-433.95" required>
+            <input name="note" placeholder="note">
+            <button type="submit">Add</button>
+          </form>
+          <ul>
+            {% for item in whitelist %}
+            <li>{{ item.rule_type }} {% if item.exact_hz %}{{ item.exact_hz / 1000000 }} MHz{% else %}{{ item.start_hz / 1000000 }}-{{ item.end_hz / 1000000 }} MHz{% endif %} ({{ item.note }})</li>
+            {% endfor %}
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Blacklist Suggestions</h2>
+      <ul>
+        {% for item in suggestions %}
+        <li>{{ item.profile_id }} {{ item.start_hz / 1000000 }}-{{ item.end_hz / 1000000 }} MHz, hits={{ item.hit_count }}, reason={{ item.reason }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>Storage</h2>
+      <p>Archive usage: {{ archive_usage }} bytes</p>
+      <p>Snapshot usage: {{ snapshot_usage }} bytes</p>
+    </section>
+
+    <section class="panel">
+      <h2>Recent Events</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Time</th>
+            <th>Profile</th>
+            <th>Frequency</th>
+            <th>Signal</th>
+            <th>Duration</th>
+            <th>Flags</th>
+            <th>Snapshot</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for event in events %}
+          <tr>
+            <td>{{ event.id }}</td>
+            <td>{{ event.created_at }}</td>
+            <td>{{ event.profile_id }}</td>
+            <td>{{ event.frequency_hz / 1000000 }}</td>
+            <td>{{ '%.1f'|format(event.signal_db) }} dB</td>
+            <td>{{ '%.1f'|format(event.duration_sec) }} s</td>
+            <td>{{ event.suppression_flags_json }}</td>
+            <td>{% if event.snapshot_path %}<a href="/files/snapshots/{{ event.snapshot_path.split('/')[-1] }}">file</a>{% else %}-{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </main>
+</body>
+</html>
